@@ -45,6 +45,8 @@ class GenerateGalaxy(object):
         self.myGalaxy.serverPort = serverPort
         self.saveClientData()
         if self.myGalaxy.speedstart == 1:
+            serverMode = globals.serverMode
+            globals.serverMode = 1
             # special setup where map is zoomed ahead 5 turns with AI doing the moves
             oldAI = {}
             for empireID, myEmpire in self.myGalaxy.empires.iteritems():
@@ -57,6 +59,7 @@ class GenerateGalaxy(object):
             for empireID, myEmpire in self.myGalaxy.empires.iteritems():
                 myEmpire.ai = oldAI[empireID]
             self.myGalaxy.endRound(doAITurn=1)
+            globals.serverMode = serverMode
     
     def saveClientData(self):
         """Save the client Data"""
@@ -106,22 +109,27 @@ class GenerateGalaxy(object):
         if playerList[0] == 'singleplayer':
             self.genEmpire(0)
             for i in range(1,self.myGalaxy.numEmpires):
-                self.genEmpire(i, playerList.pop(0), singleplayer=1)            
+                self.genEmpire(i, playerList.pop(0), singleplayer=1)
         else:
             self.genEmpire(0)
             s = range(1,8)
             random.shuffle(s)
-            empireList = self.playerGenData.keys()
+            ai = []
+            
             for i in range(1,self.myGalaxy.numEmpires):
                 email = playerList.pop(0)
                 if email == 'ai':
                     while s <> []:
                         myID = str(s.pop(0))
-                        if myID not in self.playerGenData.keys():
+                        if myID not in self.playerGenData.keys() and myID not in ai:
                             empireID = myID
+                            ai.append(myID)
                             break
                 else:
-                    empireID = empireList.pop(0)
+                    for empireID, playerGenData in self.playerGenData.iteritems():
+                        if playerGenData['email'] == email:
+                            break
+                        
                 randomEmpires[str(i)] = int(empireID)
                 self.genEmpire(int(empireID), email, singleplayer=0)               
                 
@@ -251,6 +259,18 @@ class GenerateSystems(object):
         self.setSystemNames()
         self.genSystems()
         self.setMax()
+        self.genGalaxyMaze()
+        
+    def genGalaxyMaze(self):
+        """Create the Galaxy Maze for AI Pathfinding purposes"""
+        for line in self.myGalaxy.genSystemsData:
+            newLine = []
+            for character in line:
+                if character == '.':
+                    newLine.append(0)
+                else:
+                    newLine.append(1)
+            self.myGalaxy.galaxyMaze.append(newLine)
     
     def setSystemNames(self):
         """Set the System Names by reading the system name data file"""

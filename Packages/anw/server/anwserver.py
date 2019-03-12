@@ -48,7 +48,6 @@ class COSMICAServer(xmlrpc.XMLRPC):
         self._Log('Starting Server on Port:' + str(port))
         self._Log('Loading Galaxies')
         self._LoadGalaxies(galaxyName)
-        self._Log('Server Running')
 
     def emailFirstTimePlayers(self, galaxyName):
         """Let the Players know the game has started and has been generated"""
@@ -952,7 +951,7 @@ class COSMICAServer(xmlrpc.XMLRPC):
                 server = ServerProxy(self.serverAddress)
                 newRoundNum = myGalaxy.currentRound + 1
                 neuro_result = server.end_round(myGalaxy.name, newRoundNum)
-                self._Log('%s has ended round %d with Neurojump servers' % (myGalaxy.name, myGalaxy.currentRound))                            
+                self._Log('%s has ended round %d with Neurojump servers' % (myGalaxy.name, myGalaxy.currentRound))
                 return endRound(self, myGalaxy.name)
             else:
                 s = 'invalid key: cannot endRound'
@@ -981,6 +980,8 @@ class COSMICAServer(xmlrpc.XMLRPC):
             result = self._ValidateLogin(loginKey)
             if result == 1:
                 myGalaxy = self.galaxies[loginKey['galaxyName']]
+
+
                 myEmpire = myGalaxy.empires[loginKey['empireID']]
     
                 # update empire login info
@@ -1389,7 +1390,7 @@ class COSMICAServer(xmlrpc.XMLRPC):
         rand = random.Random()
         key = ''
         for i in range(20):
-          key += str(rand.randrange(0, 9))
+            key += str(rand.randrange(0, 9))
         return key
     
     def _Log(self, message, myKey = None):
@@ -1602,6 +1603,10 @@ def endRoundCounter(server):
     # go through each galaxy in server
     for galaxyName, myGalaxy in server.galaxies.iteritems():
         if myGalaxy.currentHoursLeft <= 0:
+            neuroServer = ServerProxy(server.serverAddress)
+            newRoundNum = myGalaxy.currentRound + 1
+            neuro_result = neuroServer.end_round(myGalaxy.name, newRoundNum)
+            server._Log('FORCE END ROUND - %s has ended round %d with Neurojump servers' % (myGalaxy.name, myGalaxy.currentRound))
             endRound(server, galaxyName)
         elif myGalaxy.currentHoursLeft <= 2:
             # email all players that round will end in one hour

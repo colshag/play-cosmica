@@ -15,6 +15,9 @@ import glob
 import re
 import random
 import string
+from anw.func import storedata
+from anw.func import globals
+from selfupdate import update
 
 class Launcher(QtGui.QMainWindow, design.Ui_MainWindow):
     def __init__(self):
@@ -39,6 +42,9 @@ class Launcher(QtGui.QMainWindow, design.Ui_MainWindow):
             self.cboResolution.setCurrentIndex(resolutions.index(resolution))
         except:
             pass
+        
+        self.lblVersion.setStyleSheet('color: yellow;')
+        self.lblVersion.setText('Version: '+ globals.currentVersion+globals.currentVersionTag)
         
         self.cboResolution.currentIndexChanged.connect(self.cboResolution_clicked)
         self.chkFullScreenMode.stateChanged.connect(self.chkFullScreenMode_clicked)
@@ -88,6 +94,13 @@ class Launcher(QtGui.QMainWindow, design.Ui_MainWindow):
         self.selectedGameToJoin = 0
         self.serversIAmHosting = []
         self.selectedServerToCont = 0
+        
+        myUserInfo = storedata.loadFromFile('user.info')
+        if isinstance(myUserInfo, (list,)):
+            self.txtNickname.setText(myUserInfo[0])
+            self.txtPassword.setText(myUserInfo[1])
+        
+        update()
 
     def cboResolution_clicked(self, index):
         if self.chkFullScreenMode.isChecked():
@@ -224,6 +237,7 @@ class Launcher(QtGui.QMainWindow, design.Ui_MainWindow):
         if dataBaseName == None:
             self.message('Please delete some of your existing games from your Database folder')
             return
+        self.mainMenu.hide()
         runner = run.COSMICARunner(galaxy=dataBaseName, serverPort=None, mapfile=self.selectedMapName, 
                                    remoteServer='http://localhost:8000', password='singleplayer', 
                                    fullscreen=self.fullscreen, resolution=self.resolution, tutorial=self.tutorial)
@@ -251,6 +265,7 @@ class Launcher(QtGui.QMainWindow, design.Ui_MainWindow):
         if self.selectedDBOnDisk == None:
             self.message('Please select an existing game')
             return
+        self.mainMenu.hide()
         runner = run.COSMICARunner(galaxy=self.selectedDBOnDisk, serverPort=None, mapfile="quickstart-4man.map", 
                                    remoteServer='http://localhost:8000', password='singleplayer', fullscreen=self.fullscreen, resolution=self.resolution)
         runner.start()
@@ -298,6 +313,7 @@ class Launcher(QtGui.QMainWindow, design.Ui_MainWindow):
                 if address == '':
                     address = gameInfo[3]
                 # run game
+                self.mainMenu.hide()
                 runner = run.COSMICARunner(galaxy=gameInfo[1], serverPort=None, empire=gameInfo[6], password=gameInfo[7],
                                        remoteServer=address, startSinglePlayerServer=False, fullscreen=self.fullscreen, resolution=self.resolution)
                 runner.start()
@@ -363,6 +379,7 @@ class Launcher(QtGui.QMainWindow, design.Ui_MainWindow):
             result2 = server.register_players_into_game(self.myInfo, self.id, result[0], playerGenData)
             
             if result2 == 1: # successfully registered players into neurojump servers
+                self.mainMenu.hide()
                 runner = run.COSMICARunner(galaxy=result[0], serverPort=int(str(self.txtAddressNewMulti.text())[-4:]), mapfile=self.selectedMapName, 
                                            remoteServer=str(self.txtAddressNewMulti.text()), singlePlayer=False, playerList=result[1], playerGenData=playerGenData)
                 runner.start()
@@ -400,6 +417,7 @@ class Launcher(QtGui.QMainWindow, design.Ui_MainWindow):
             result = server.cont_multiplayer_server(self.myInfo, gameID, newAddress)
             if result == 1:
                 # run server
+                self.mainMenu.hide()
                 runner = run.COSMICARunner(galaxy=gameInfo[1], serverPort=int(newAddress[-4:]), singlePlayer=False)
                 runner.start()
                 self.exit_launcher()
@@ -423,12 +441,16 @@ class Launcher(QtGui.QMainWindow, design.Ui_MainWindow):
         server = ServerProxy(self.serverAddress)
         result = server.login_player(self.myInfo)
         if len(result) == 4:
+            myUserInfo = [str(self.txtNickname.text()), str(self.txtPassword.text())]
+            storedata.saveToFile(myUserInfo, 'user.info')
+            
             self.id = result[0]
             self.email = result[1]
             self.nickname = result[2]
             self.mainMenu.setCurrentIndex(1)
             self.myInfo['email'] = self.email
-            self.message('Welcome to Cosmica %s, your registered email is: %s' % (self.nickname, self.email))
+            self.lblVersion.setStyleSheet('color: green;')
+            self.lblVersion.setText('Version: %s%s - %s - %s' % (globals.currentVersion, globals.currentVersionTag, self.nickname, self.email))
         else:
             self.message('Login Error: %s' % result)
     
@@ -440,7 +462,6 @@ def main():
     form = Launcher()
     form.show()
     app.exec_()
-
 
 if __name__ == '__main__':
     main() 
