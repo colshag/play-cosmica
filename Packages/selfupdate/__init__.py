@@ -42,7 +42,8 @@ def __get_calling_file(verbose=False):
 	this_file = stack[0][1]
 	for i in range(1, len(stack)):
 		if stack[i][1] != this_file:
-			complete_path = os.path.normpath(os.getcwd() + "../" + stack[i][1])
+			#complete_path = os.path.normpath(os.getcwd() + "/" + stack[i][1])
+			complete_path = os.path.normpath(stack[i][1])
 			__print(verbose, "Module was called from: {}".format(complete_path))
 			return os.path.split(complete_path)
 
@@ -59,7 +60,8 @@ def __find_repo(verbose=False):
 	file_path, file_name = __get_calling_file()
 	# walk up the file tree looking for a valid git repo, stop when we hit the base
 	while True:
-		if os.path.samefile(os.path.normpath(file_path), os.path.normpath("/")):
+		#if os.path.samefile(os.path.normpath(file_path), os.path.normpath("/")):
+		if __samefile(os.path.normpath(file_path), os.path.normpath("/")):
 			__print(verbose, "Calling script is not in a valid git repo")
 			raise LookupError("Calling script is not in a valid git repo")
 
@@ -69,6 +71,13 @@ def __find_repo(verbose=False):
 			return os.path.normpath(file_path)
 		except git.exc.InvalidGitRepositoryError:
 			file_path = os.path.normpath(file_path + "/..")
+
+def __samefile(file1, file2):
+	"""required for python 2.7 - Chris Lewis"""
+	try:
+		return os.stat(os.path.normpath(file1)) == os.stat(os.path.normpath(file2))
+	except:
+		return False
 
 def __find_current_branch(repo, verbose=False):
 	'''
@@ -228,94 +237,20 @@ def pull(force=False, check_dev=True, verbose=False):
 		__print(verbose, "Completed clean with response: {}".format(clean_resp))
 		return (True, diffs)
 
-def push(force=False, check_dev=True, message="Pushing up changes with python selfupdate", username=None, password=None, verbose=False):
-	'''
-	This function will perform a push up of all local changes that have been 
-	made into a repo. However, if there is a file conflict this function will
-	raise a SystemError flag if force is set to False. If force is True, it 
-	will force the push. The function will first run "git add -A", followed up by
-	"git commit -m 'users message here'" and finally "git push" or possibly
-	"git push <credentials>" if needed. If the function is called with the 
-	username and password populated it will attept to push using the provided
-	credentials otherwise it will fall back to simply "git push". This method
-	is currently unable to handle repositories that may need credentials and
-	that are protected with 2-factor authentication. It is reccomended to 
-	clone the repo using SSH to avoid issues in this case.
-	'''
-	if check_dev and __is_dev_env(repo_path) and force:
-		__print(verbose, "Detected development environment. Aborting hard pull")
-		return 
-
-	conflicts = __get_file_conflicts(repo)
-	if len(conflicts) != 0 and not force:
-		__print(verbose, "Can not push, there are file conflicts")
-		raise SystemError("Can not push up changes when there are file conflicts")
-
-	# perform "git add -A"
-	add_resp = str(repo.git.add("-A"))
-	__print(verbose, "Added all local changes with response: {}".format(add_resp))
-
-	# perform "git commit -m '<message>'"
-	try:
-		commit_resp = str(repo.git.commit("-m", "'{}'".format(message)))
-		__print(verbose, "Commit all local changes with response: {}".format(commit_resp))
-	except git.exc.GitCommandError:
-		# TODO: handle errors that may occur when doing a commit
-		pass
-
-	# perform "git push" with credentials if provided
-	try:
-		if username is not None and password is not None:
-			# user is attempting to send credentials with the push, fabricate URL
-			repo_url = str(repo.git.remote("-v")).splitlines()[0][7:-8].split("//")[1]
-			repo_url = "https://{}:{}@{}".format(username, password, repo_url)
-			if force:
-				push_resp = str(repo.git.push(repo_url, "-f"))
-			else:
-				push_resp = str(repo.git.push(repo_url))
-		else:
-			branch = __find_current_branch(repo)
-			if force:
-				push_resp = str(repo.git.push("origin", branch, "-f"))
-			else:
-				push_resp = str(repo.git.push("origin", branch))
-		__print(verbose, "Push all local changes with response: {}".format(push_resp))
-	except git.exc.GitCommandError as err:
-		err = str(err).splitlines()
-		# handle incorrect username/password
-		if "remote: Invalid username or password." in err[-2]:
-			__print(verbose, "Wrong login credentials, authentication failed")
-			raise ValueError("Wrong login credentials, authentication failed")
-		# correct credentials but something else went wrong, most likely 2-factor auth
-		elif "remote: Anonymous access to " in err[-2]:
-			__print(verbose, "Cannot gain access, authentication failed. This is often caused by 2-factor authentication")
-			raise ValueError("Cannot gain access, authentication failed. This is often caused by 2-factor authentication")
-		# we really goofed, pass the error along
-		else:
-			raise
-
-def update(force=False, check_dev=True, message="Pushing up changes with python selfupdate", username=None, password=None, verbose=False):
+def update(force=False, check_dev=True, message="python selfupdate", username=None, password=None, verbose=False):
 	'''
 	The single function that can be called to automagically
 	update the repo in which the calling file is located.
 	The 'force' paramter will cause the module to force do a
-	pull and push. This is a destructive action that can
+	pull. This is a destructive action that can
 	cause loss of local data. 'check_dev' when set to True 
 	will not allow any destructive action to take place IFF 
 	the calling script is in a selfupdate dev environment. 
-	'message' is the commit message that will be used when
-	changes are pushed up to the remote repo. If the remote
-	repo is password protected you will need to provide the
-	username and password so that the push does not fail.  
 	'''
 	if force:
-		push(force=force, check_dev=check_dev, message=message, username=username, password=password, verbose=verbose)
-		__print(verbose, "Pushed any possible local changes")
 		pull(force=force, check_dev=check_dev, verbose=verbose)
 		__print(verbose, "Pulled any possible remote changes")
 	else:
 		pull(force=force, check_dev=check_dev, verbose=verbose)
 		__print(verbose, "Pulled any possible remote changes")
-		push(force=force, check_dev=check_dev, message=message, username=username, password=password, verbose=verbose)
-		__print(verbose, "Pushed any possible local changes")
 
