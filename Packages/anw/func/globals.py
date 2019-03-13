@@ -9,9 +9,9 @@ try:
     from panda3d.core import Vec4
 except:
     pass
-currentVersion = '0.22'
+currentVersion = '0.23'
 currentVersionShort = 'master'
-currentVersionTag = '.2'
+currentVersionTag = '.0'
 serverMode = 0
 bSinglePlayer= False
 
