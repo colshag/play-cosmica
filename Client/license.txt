@@ -1,6 +1,6 @@
 Cosmica
 =======
-NeuroJump (2018) all rights reserved - test
+NeuroJump (2018) all rights reserved
 ====================================
 
 License: Do not redistribute Cosmica for financial gain.
